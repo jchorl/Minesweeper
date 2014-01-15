@@ -1,0 +1,446 @@
+/*
+ * Aaron Goldberg
+ * Modified: May 6, 2012
+ * Sets up the bombs based on the user's inputted settings
+ * Has the ability to add more bombs
+ * Responds to mouse press commands
+ * Calls the Board class to draw changes on clicked squares
+ * Deals with items such as clicking on a cell with a flag, double clicking, and zeroes
+ * etc.
+ * Made methods such as: buttonClicked(), leftClick(), rightClick(), doubleClick(), findOutHowManyBombsAround(), findOutHowManyFlagsAround(), turnCellIDIntoPosition(), convertBackToCellID, addBombs(), etc
+ *
+ * Added clickAllAround() method
+ * Modified: May 12, 2012 (after shabbos, don't worry)
+ * Created checkIfWon() method
+ * A bunch of testing of different sections of the class, the wrong Gameplay class kept getting called which made testing quite arduous
+ * Modified: May 13, 2012
+ * Fixed problem with clickAllAroundMethod
+ * Fixed problem with displaying bombs at the end, and with right click (mismatch for the picture to be drawn)
+ * Protected first click
+ * Added feature to draw the correct number of flags remaining in the top left corner
+ * Modified: May 14, 2012
+ * Prevented user from placing too many flags
+ * Modified: May 15, 2012
+ * Calls the gameOver() method in Menu when user wins/loses
+ * Changed gameOver() method in Menu to deal differently with winning and losing
+ * Fixed bug in the way time was kept in GameOver class so as to convert to the correct time (in seconds)
+ * Corrected the mistake in showing which flags were incorrectly placed
+ * Modified: May 16, 2012
+ * Corrected redundancy in finding number of bombs around a clicked cell
+ */
+
+/**
+ * 
+ * @author Aaron Goldberg
+ * Facilitates the back-end logic for a Minesweeper game. Displays the front-end on a {@link Board}
+ *
+ */
+
+public class Gameplay{
+  private Board b;
+  private int width, height;
+  private boolean[][] bombPositions;//the first variable refers to the column number, the second to the row within said column
+  private boolean[][] flagPositions;//the first variable refers to the column number, the second to the row within said column
+  private boolean[][] clickedPositions;//the first variable refers to the column number, the second to the row within said column
+  private int xPos, yPos;//left top is 0,0
+  private int numberOfBombs;
+  private int numberOfBombsAround;
+  private int flagsRemaining;
+  private Minesweeper menu;
+  
+  /**
+   * Create a new instance of Gameplay. Each instance is another Minesweeper game
+   * @param h the height of the board in squares
+   * @param w the width of the board in squares
+   * @param board the Board that displays the game to the user
+   * @param nob the number of bombs to put in the game
+   * @param m the Minseweeper object that creates the game
+   */
+  
+  public Gameplay(int h, int w, Board board, int nob, Minesweeper m){
+
+    height= h;
+    width= w;
+    numberOfBombs= nob;
+    menu= m;
+    flagsRemaining= numberOfBombs;
+    try{
+     b.setBombs(flagsRemaining);
+    }catch(Exception e){
+    }
+
+    //int[] cells= new int[height*width];
+    b= board;
+    setUpInitialBombs(numberOfBombs);
+    setFlagsAsFalse();
+    setClickedAsFalse();
+  }
+  
+  /**
+   * Places the bombs on a grid
+   * @param nob the number of bombs to place
+   */
+  
+  public void setUpInitialBombs(int nob){
+    bombPositions= new boolean[width][height];
+    for (int i= 0;i<bombPositions.length;i++){
+      for (int j= 0;j<bombPositions[i].length;j++){
+        bombPositions[i][j]= false;
+      }
+    }
+    for (int i= 0;i<nob;i++){
+      addBomb();
+    }
+  }
+  
+  /**
+   * Adds a bomb to the grid
+   */
+  
+  public void addBomb(){
+    boolean badBomb;
+    //int xPos, yPos;
+    //System.out.println("BLARFINGAR");
+    do{
+      badBomb= false;
+      xPos= (int) (Math.random()*width);
+      yPos= (int) (Math.random()*height);
+      if (bombPositions[xPos][yPos]){
+        badBomb= true;
+        //System.out.println(xPos + "," + yPos + " is a bad choice");
+      }
+    }while(badBomb);
+    bombPositions[xPos][yPos]= true;
+  }
+  
+  /**
+   * Sets all the squares as unflagged
+   */
+  
+  public void setFlagsAsFalse(){
+    flagPositions= new boolean[width][height];
+    for (int i= 0;i<width;i++){
+      for (int j= 0;j<height;j++){
+        flagPositions[i][j]= false;
+      }
+    }
+  }
+  
+  /**
+   * Sets all the squares as unclicked cells
+   */
+  
+  public void setClickedAsFalse(){
+    clickedPositions= new boolean[width][height];
+    for (int i= 0;i<width;i++){
+      for (int j= 0;j<height;j++){
+        clickedPositions[i][j]= false;
+      }
+    }
+  }
+  
+  /**
+   * checks to see if the player has won the game
+   * @return true if the game was won, false if the user lost
+   */
+  
+  public boolean checkIfWon(){
+   boolean won= true;
+   for (int i= 0;i<width;i++){
+      for (int j= 0;j<height;j++){
+        if (!clickedPositions[i][j] && !bombPositions[i][j]){
+         won= false;//if there is a space that has neither been clicked nor is a bomb, the user has not yet won
+        }//end if
+      }
+    }
+   return won;
+  }/////////////////this method is never called from this class, it can be utilized but is not as of yet
+  
+  /**
+   * If a cell was clicked, call this method which computes the actions that should occur both on the front-end and back-end
+   * @param cell the cell that was clicked
+   * @param type the type of click (Left, Right)
+   * @param firstClick was this the first click of the game?
+   */
+  
+  public void buttonClicked(int cell, int type, boolean firstClick){//cell is the id of the cell that was clicked on, for type, 0=left click, 1=right click, 2= double click
+    //System.out.println("CELL ID " + cell + " type " + type);
+    int[] positions= turnCellIDIntoPosition(cell);
+    if (firstClick){
+     moveBombs(positions);
+    }
+    if (type==0){
+      leftClick(positions);
+    }
+    if (type==1){
+      //System.out.println("right click");
+      rightClick(positions);
+    }
+    else if (type==2){
+      doubleClick(positions);
+    }
+
+    //System.out.println("a button has been clicked");
+  }
+  
+  /**
+   * if the first click was a bomb, move it so that the first click is a 0
+   * @param positions the entire grid of cells in the form of a two-dimensional array
+   */
+  
+  public void moveBombs(int[] positions){
+   boolean bombMoved;
+   do{
+    bombMoved= false;
+    if (bombPositions[positions[0]][positions[1]]){
+     bombPositions[positions[0]][positions[1]]= false;
+     addBomb();
+     bombMoved= true;
+    }
+    if (positions[0] > 0 && bombPositions[positions[0]-1][positions[1]]){
+     bombPositions[positions[0]-1][positions[1]]= false;
+     addBomb();
+     bombMoved= true;
+    }
+     if (positions[0] > 0 && positions[1] > 0 && bombPositions[positions[0]-1][positions[1]-1]){
+     bombPositions[positions[0]-1][positions[1]-1]= false;
+     addBomb();
+     bombMoved= true;
+    }
+     if (positions[1] > 0 && bombPositions[positions[0]][positions[1]-1]){
+     bombPositions[positions[0]][positions[1]-1]= false;
+     addBomb();
+     bombMoved= true;
+    }
+     if (positions[0] < width - 1 && bombPositions[positions[0]+1][positions[1]]){
+     bombPositions[positions[0]+1][positions[1]]= false;
+     addBomb();
+     bombMoved= true;
+    }
+     if (positions[1] < height - 1 && bombPositions[positions[0]][positions[1]+1]){
+     bombPositions[positions[0]][positions[1]+1]= false;
+     addBomb();
+     bombMoved= true;
+    }
+     if (positions[0] < width - 1 && positions[1] < height - 1 && bombPositions[positions[0]+1][positions[1]+1]){
+     bombPositions[positions[0]+1][positions[1]+1]= false;
+     addBomb();
+     bombMoved= true;
+    }
+     if (positions[0] < width - 1 && positions[1] > 0 && bombPositions[positions[0]+1][positions[1]-1]){
+     bombPositions[positions[0]+1][positions[1]-1]= false;
+     addBomb();
+     bombMoved= true;
+    }
+     if (positions[0] > 0 && positions[1] < height - 1 && bombPositions[positions[0]-1][positions[1]+1]){
+     bombPositions[positions[0]-1][positions[1]+1]= false;
+     addBomb();
+     bombMoved= true;
+    }
+   }while(bombMoved);//if a bomb was moved out of the way, it may have moved to another spot in which it should not be, thus this ensures such is not true
+  }//protects the user's first click and automatically makes it a 0
+  
+  /**
+   * Called when the user left-clicks
+   * @param positions that were clicked
+   */
+  
+  public void leftClick(int[] positions){
+    if (!flagPositions[positions[0]][positions[1]]){
+      if (bombPositions[positions[0]][positions[1]]){//if they click a bomb
+        for (int i= 0;i<bombPositions.length;i++){
+          for (int j= 0;j<bombPositions[i].length;j++){
+            if (!flagPositions[i][j] && bombPositions[i][j]){
+              b.drawThing(convertBackToCellID(i,j), 10);//if there is no flag, draw a grey bomb
+            }//end if
+          }
+        }//this for loop draws all the bombs the user did not flag
+        for (int i= 0;i<flagPositions.length;i++){
+          for (int j= 0;j<flagPositions[i].length;j++){
+            if (flagPositions[i][j] && !bombPositions[i][j]){
+              //System.out.println("incorrect flag, drawing over it" +convertBackToCellID(i,j));
+              //System.out.println("drawing over position " + i + " " + j);
+              b.drawThing(convertBackToCellID(i,j), 13);//if the user put a flag in the position that does not, in fact, have a bomb, draw a bomb with an X through it
+            }
+          }
+        }//this for loop tells the user which flag cells of those were mistakes
+        b.drawThing(convertBackToCellID(positions), 9);//draw a red bomb on the spot where the user clicked
+        menu.gameOver(false);
+        //save records, make a nice thank you screen, maybe show all bombs, new menu
+      }//you clicked on a bomb, you lose
+      else{
+       //System.out.println("drawing the number " + findOutHowManyBombsAround(positions));
+       clickedPositions[positions[0]][positions[1]]= true;
+       numberOfBombsAround= findOutHowManyBombsAround(positions);
+        b.drawThing(convertBackToCellID(positions), numberOfBombsAround);//this may not line up in terms of the correct # sent to the Board.drawThing() method corresponding to the correct picture, but it should if there is a picture to be drawn when a square with 0 bombs around it is clicked
+        //System.out.println("drawing the number " + findOutHowManyBombsAround(positions) + " at cell ID " + convertBackToCellID(positions));
+        if (numberOfBombsAround == 0){
+          clickAllAround(positions);
+          //System.out.println("clicking around");
+        }
+      }
+      if (checkIfWon()){
+        menu.getBoard().getTimer().cancel();
+        menu.gameOver(true);
+      }
+    }//only click on the square if there is no flag already there
+    b.getGamePanel().validate();
+    //System.out.println("left click");
+  }
+  
+  /**
+   * Called when the user left-clicks
+   * @param x the x coordinate clicked
+   * @param y the y coordinate clicked
+   */
+  
+  public void leftClick(int x, int y){
+    int[] positions= {x , y};
+    leftClick(positions);
+  }
+  public void rightClick(int[] positions){
+   //System.out.println("right click");
+   if (flagsRemaining >=0){
+    if (flagPositions[positions[0]][positions[1]]){
+      //System.out.println("remove flag");
+      b.drawThing(convertBackToCellID(positions), /*blank square*/12);//if there's already a flag, take it away
+      flagPositions[positions[0]][positions[1]]= false;
+      flagsRemaining++;
+     }
+     else if (flagsRemaining >0){
+      //System.out.println("draw flag");
+      b.drawThing(convertBackToCellID(positions), /*flag*/11);//if there is no flag, draw one
+      flagPositions[positions[0]][positions[1]]= true;
+      flagsRemaining--;
+     }
+     //System.out.println("setting bmob");
+  try{
+      b.setBombs(flagsRemaining);
+     }catch(Exception e){
+     }
+   }
+   b.getGamePanel().validate();
+  }
+  
+  /**
+   * Called when the user double-clicks a cell, clicks all the cells around it if the number of adjacent bombs is equal to the number of adjacent flags
+   * @param positions the coordinates of the cell double clicked
+   */
+  
+  public void doubleClick(int[] positions){
+    if (findOutHowManyBombsAround(positions) == findOutHowManyFlagsAround(positions))
+      clickAllAround(positions);
+  }
+  
+  /**
+   * Clicks all around a specific cell
+   * @param positions the coordinates of the cell to click all around
+   */
+  
+  public void clickAllAround(int[] positions){
+    if (positions[0] > 0 && !clickedPositions[positions[0]-1][positions[1]])
+      leftClick(positions[0]-1,positions[1]);
+    if (positions[0] > 0 && positions[1] > 0 && !clickedPositions[positions[0]-1][positions[1]-1])
+      leftClick(positions[0]-1,positions[1]-1);
+    if (positions[1] > 0 && !clickedPositions[positions[0]][positions[1]-1])
+      leftClick(positions[0],positions[1]-1);
+    if (positions[0] < width - 1 && !clickedPositions[positions[0]+1][positions[1]])
+      leftClick(positions[0]+1,positions[1]);
+    if (positions[1] < height - 1 && !clickedPositions[positions[0]][positions[1]+1])
+      leftClick(positions[0],positions[1]+1);
+    if (positions[0] < width - 1 && positions[1] < height - 1 && !clickedPositions[positions[0]+1][positions[1]+1])
+      leftClick(positions[0]+1,positions[1]+1);
+    if (positions[0] < width - 1 && positions[1] > 0 && !clickedPositions[positions[0]+1][positions[1]-1])
+      leftClick(positions[0]+1,positions[1]-1);
+    if (positions[0] > 0 && positions[1] < height - 1 && !clickedPositions[positions[0]-1][positions[1]+1])
+      leftClick(positions[0]-1,positions[1]+1);
+  }
+  
+  /**
+   * Finds out how many bombs are around a specific cell
+   * @param positions the coordinates of the cell to look around for bombs
+   * @return the number of bombs around that cell
+   */
+  
+  public int findOutHowManyBombsAround(int[] positions){
+    short bombsAroundCounter= 0;
+    if (positions[0] > 0 && bombPositions[positions[0]-1][positions[1]])
+      bombsAroundCounter++;
+    if (positions[0] > 0 && positions[1] > 0 && bombPositions[positions[0]-1][positions[1]-1])
+      bombsAroundCounter++;
+    if (positions[1] > 0 && bombPositions[positions[0]][positions[1]-1])
+      bombsAroundCounter++;
+    if (positions[0] < width - 1 && bombPositions[positions[0]+1][positions[1]])
+      bombsAroundCounter++;
+    if (positions[1] < height - 1 && bombPositions[positions[0]][positions[1]+1])
+      bombsAroundCounter++;
+    if (positions[0] < width - 1 && positions[1] < height - 1 && bombPositions[positions[0]+1][positions[1]+1])
+      bombsAroundCounter++;
+    if (positions[0] < width - 1 && positions[1] > 0 && bombPositions[positions[0]+1][positions[1]-1])
+      bombsAroundCounter++;
+    if (positions[0] > 0 && positions[1] < height - 1 && bombPositions[positions[0]-1][positions[1]+1])
+      bombsAroundCounter++;
+    return bombsAroundCounter;
+  }
+  
+  /**
+   * Finds out how many bombs surround a cell
+   * @param positions the coordinates of the cell to look around for flags
+   * @return the number of bombs around that cell
+   */
+  
+  public int findOutHowManyFlagsAround(int[] positions){
+    short flagsAroundCounter= 0;
+    if (positions[0] > 0 && flagPositions[positions[0]-1][positions[1]])
+      flagsAroundCounter++;
+    if (positions[0] > 0 && positions[1] > 0 && flagPositions[positions[0]-1][positions[1]-1])
+      flagsAroundCounter++;
+    if (positions[1] > 0 && flagPositions[positions[0]][positions[1]-1])
+      flagsAroundCounter++;
+    if (positions[0] < width - 1 && flagPositions[positions[0]+1][positions[1]])
+      flagsAroundCounter++;
+    if (positions[1] < height - 1 && flagPositions[positions[0]][positions[1]+1])
+      flagsAroundCounter++;
+    if (positions[0] < width - 1 && positions[1] < height - 1 && flagPositions[positions[0]+1][positions[1]+1])
+      flagsAroundCounter++;
+    if (positions[0] < width - 1 && positions[1] > 0 && flagPositions[positions[0]+1][positions[1]-1])
+      flagsAroundCounter++;
+    if (positions[0] > 0 && positions[1] < height - 1 && flagPositions[positions[0]-1][positions[1]+1])
+      flagsAroundCounter++;
+    return flagsAroundCounter;
+  }
+  
+  /**
+   * turns a cell ID into the x and y coordinates of that cell
+   * @param cell the cell ID to convert
+   * @return an int array containing the x and y coordinates of the cell
+   */
+  
+  public int[] turnCellIDIntoPosition(int cell){
+    yPos= cell % height;
+    xPos= (int) (cell/height);
+    int[] positions= {xPos,yPos};
+    return positions;
+  }//returns an int[] with two values in it, the first corresponding to the column of the specified cell {0, 1 . . . (width-1)} and the second corresponding to the row of the specified cell {0, 1 . . . (height-1)}
+  
+  /**
+   * converts x and y coordinates into a cell ID
+   * @param coordinates the coordinates to turn into a cell ID
+   * @return the cell ID
+   */
+  
+  public int convertBackToCellID(int[] coordinates){
+    return height*coordinates[0] + coordinates[1];
+  }
+  
+  /**
+   * converts x and y coordinates into a cell ID
+   * @param x the x coordinate to convert into a cell ID
+   * @param y the y coordinate to convert into a cell ID
+   * @return the cell ID
+   */
+  
+  public int convertBackToCellID(int x, int y){
+    return height*x + y;
+  }
+}

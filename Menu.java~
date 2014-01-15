@@ -1,0 +1,92 @@
+import java.awt.GridBagConstraints;
+import java.awt.GridBagLayout;
+import java.awt.Insets;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import javax.swing.JButton;
+import javax.swing.JFrame;
+import javax.swing.JPanel;
+import javax.swing.JLabel;
+import javax.swing.ImageIcon;
+import javax.imageio.ImageIO;
+import java.io.File;
+
+public class Menu{
+  private Settings s= new Settings();
+  private HighScorePanel h= new HighScorePanel();
+  private Board b;
+  private GameOver go;
+  private JPanel mainPanel= new JPanel(new GridBagLayout());
+  private JFrame frame= new JFrame("Minesweeper");
+  private int difficulty;
+  private GridBagConstraints mc= new GridBagConstraints();
+  public static void main(String[] args){
+    Menu m= new Menu();
+  }
+  public Menu(){
+    frame.setSize(720,454);
+    frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+    JPanel headerPanel= new JPanel(new GridBagLayout());
+    ImageIcon header= new ImageIcon();
+    try{
+      header= new ImageIcon(ImageIO.read(new File("Header.jpg"))); // it says "MINESWEEPER"
+    }catch(Exception e){}
+    GridBagConstraints hc= new GridBagConstraints();
+    hc.anchor= GridBagConstraints.NORTH;
+    headerPanel.add(new JLabel(header), hc);
+    mc.gridy= 0;
+    mc.gridwidth= 2;
+    mc.anchor= GridBagConstraints.NORTH;
+    mainPanel.add(headerPanel, mc);
+    mc.gridwidth= 1;
+    mc.gridy= 1;
+    mainPanel.add(s, mc);
+    mc.gridx= 1;
+    mc.insets= new Insets(40,50,0,0);
+    mainPanel.add(h, mc);
+    JButton start= new JButton("Start");
+    start.addActionListener(new ActionListener(){
+      public void actionPerformed(ActionEvent e){
+        difficulty= s.getDifficulty();
+        b= new Board(s.getWidthSquares(), s.getHeightSquares(), s.getBombs(), Menu.this);
+        mainPanel.removeAll();
+        if(24*s.getWidthSquares()>=480){
+          frame.setSize(24*s.getWidthSquares(), 50+s.getHeightSquares()*24+frame.getInsets().top);
+        }
+        else{
+          frame.setSize(480, 50+s.getHeightSquares()*24+frame.getInsets().top);
+        }
+        mc.insets= new Insets(0,0,0,0);
+        mainPanel.add(b, mc);
+        mainPanel.repaint();
+        frame.validate();
+      }
+    });
+    mc.weighty++;
+    mc.gridy++;
+    mc.gridx= 0;
+    mc.gridwidth= 2;
+    mainPanel.add(start, mc);
+    frame.add(mainPanel);
+    frame.setVisible(true);
+  }
+  public JFrame getFrame(){
+    return frame;
+  }
+  public void gameOver(boolean win){
+    frame.setSize(frame.getWidth(), frame.getHeight()+30);
+    if(win){
+      gameOverMenu();
+    }
+    else{
+      b.addOkayButton();
+    }
+  }
+  public void gameOverMenu(){
+    mainPanel.remove(b);
+    go= new GameOver(b.getTime(), difficulty, Menu.this.getFrame());
+    mainPanel.add(go, mc);
+    mainPanel.repaint();
+    frame.validate();
+  }
+}
